@@ -175,3 +175,45 @@ describe('ProtectedRoute: destino depende de como a pessoa chegou ao estado anon
     expect(screen.queryByRole('heading', { name: 'Entrar' })).not.toBeInTheDocument()
   })
 })
+
+describe('Reidratacao: falha de verificacao nao e o mesmo que token invalido', () => {
+  /**
+   * So um 401 prova que o token e ruim. Qualquer outra falha diz apenas que
+   * nao foi possivel VERIFICAR -- e a API no plano gratuito hiberna, entao
+   * isso e rotina, nao excecao. Descartar a sessao ali deslogaria um docente
+   * com token perfeitamente valido.
+   */
+  it('preserva o token quando a API esta inalcancavel', async () => {
+    tokenStorage.set('token-valido')
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
+
+    renderGuarda()
+    await screen.findByRole('heading', { name: 'Entrar' })
+
+    expect(tokenStorage.get()).toBe('token-valido')
+  })
+
+  it('preserva o token quando a API responde 500', async () => {
+    tokenStorage.set('token-valido')
+    fetchMock.mockResolvedValue(
+      fakeResponse({ error: 'Erro interno do servidor.' }, 500),
+    )
+
+    renderGuarda()
+    await screen.findByRole('heading', { name: 'Entrar' })
+
+    expect(tokenStorage.get()).toBe('token-valido')
+  })
+
+  it('DESCARTA o token apenas no 401, que e quem prova invalidez', async () => {
+    tokenStorage.set('token-adulterado')
+    fetchMock.mockResolvedValue(
+      fakeResponse({ error: 'Token invalido ou expirado.' }, 401),
+    )
+
+    renderGuarda()
+    await screen.findByRole('heading', { name: 'Entrar' })
+
+    expect(tokenStorage.get()).toBeNull()
+  })
+})

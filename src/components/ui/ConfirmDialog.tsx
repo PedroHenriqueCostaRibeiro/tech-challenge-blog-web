@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import styled from 'styled-components'
 import { Button } from './Button'
 
@@ -71,6 +71,14 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
 
+  /**
+   * Ids gerados, e nao fixos: um id repetido quebraria a associacao se dois
+   * dialogos existissem na mesma pagina. Mesmo criterio ja adotado em
+   * TextField, TextArea e SearchInput.
+   */
+  const tituloId = useId()
+  const mensagemId = useId()
+
   useEffect(() => {
     const dialog = ref.current
     if (!dialog) return
@@ -85,7 +93,10 @@ export function ConfirmDialog({
   return (
     <Dialog
       ref={ref}
-      aria-labelledby="confirm-titulo"
+      aria-labelledby={tituloId}
+      // Descreve o dialogo pela mensagem tambem: e ela que diz QUAL postagem
+      // sera removida, e so o titulo ("Excluir postagem") nao informa isso.
+      aria-describedby={mensagemId}
       // Disparado pelo Esc: sem isto o dialogo fecharia sem o React saber,
       // e o estado ficaria dessincronizado do DOM.
       onCancel={(event) => {
@@ -93,8 +104,8 @@ export function ConfirmDialog({
         onCancelar()
       }}
     >
-      <Titulo id="confirm-titulo">{titulo}</Titulo>
-      <Texto>{mensagem}</Texto>
+      <Titulo id={tituloId}>{titulo}</Titulo>
+      <Texto id={mensagemId}>{mensagem}</Texto>
 
       <Acoes>
         <Button type="button" $variant="ghost" onClick={onCancelar}>

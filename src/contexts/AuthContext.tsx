@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from 'react'
 import { authApi } from '../api/auth.api'
-import { setUnauthorizedHandler } from '../api/http'
+import { ApiError, setUnauthorizedHandler } from '../api/http'
 import { tokenStorage } from '../api/token'
 import type { User } from '../types'
 import { AuthContext, type AuthStatus } from './auth-context'
@@ -45,9 +45,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(dados)
         setStatus('authenticated')
       })
-      .catch(() => {
-        // Token expirado, adulterado, ou usuario removido do banco.
-        if (!cancelado) clearSession()
+      .catch((erro: unknown) => {
+        if (cancelado) return
+
+        /**
+         * So um 401 prova que o token e ruim.
+         *
+         * Qualquer outra falha -- rede fora, API hibernando, 500 -- diz apenas
+         * que NAO FOI POSSIVEL VERIFICAR, o que e diferente de "invalido".
+         * Descartar a sessao nesse caso deslogaria um docente com token
+         * perfeitamente valido, e o plano gratuito onde a API hiberna torna
+         * isso rotineiro, nao raro.
+         *
+         * Nesses casos o token e preservado: a pessoa entra de novo se quiser,
+         * e um recarregamento com a API de volta reidrata a sessao sozinho.
+         */
+        if (erro instanceof ApiError && erro.status === 401) {
+          clearSession()
+          return
+        }
+
+        setStatus('anonymous')
       })
 
     return () => {
