@@ -78,3 +78,35 @@ export function renderWithAuth(
 export function nuncaResolve(): Promise<never> {
   return new Promise(() => {})
 }
+
+type Rota = { corpo: unknown; status?: number }
+
+/**
+ * Roteia o fetch mockado por URL, em vez de por ordem de chamada.
+ *
+ * Necessario porque o AuthProvider dispara /auth/me no boot: depender da
+ * ordem tornaria os testes fragis a qualquer mudanca no momento da
+ * reidratacao.
+ */
+export function mockApiPorUrl(
+  fetchMock: { mockImplementation: (fn: (url: string) => Promise<Response>) => void },
+  rotas: Record<string, Rota>,
+) {
+  fetchMock.mockImplementation((url: string) => {
+    const chave = Object.keys(rotas).find((padrao) => url.includes(padrao))
+
+    if (!chave) {
+      return Promise.resolve(
+        fakeResponse({ error: `Rota nao mockada: ${url}` }, 500),
+      )
+    }
+
+    const { corpo, status = 200 } = rotas[chave]
+    return Promise.resolve(fakeResponse(corpo, status))
+  })
+}
+
+/** Prepara uma sessao de docente ja autenticada. */
+export function darSessao(token = 'token-valido') {
+  localStorage.setItem('blog.token', token)
+}

@@ -3,6 +3,8 @@ import { Layout } from '../components/layout/Layout'
 import { ProtectedRoute } from '../components/layout/ProtectedRoute'
 import Admin from '../pages/Admin'
 import Home from '../pages/Home'
+import PostCreate from '../pages/PostCreate'
+import PostEdit from '../pages/PostEdit'
 import Login from '../pages/Login'
 import NotFound from '../pages/NotFound'
 import PostDetail from '../pages/PostDetail'
@@ -26,6 +28,8 @@ export default function AppRoutes() {
         {/* Exclusivas de docentes autenticados. */}
         <Route element={<ProtectedRoute />}>
           <Route path="/admin" element={<Admin />} />
+          <Route path="/admin/posts/new" element={<PostCreate />} />
+          <Route path="/admin/posts/:id/edit" element={<PostEdit />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />
