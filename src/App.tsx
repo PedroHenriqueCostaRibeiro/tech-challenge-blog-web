@@ -1,5 +1,6 @@
 import { BrowserRouter } from 'react-router-dom'
 import { ThemeProvider } from 'styled-components'
+import { AuthProvider } from './contexts/AuthContext'
 import AppRoutes from './routes/AppRoutes'
 import { GlobalStyle } from './styles/global'
 import { theme } from './styles/theme'
@@ -9,7 +10,10 @@ export default function App() {
     <ThemeProvider theme={theme}>
       <GlobalStyle />
       <BrowserRouter>
-        <AppRoutes />
+        {/* Dentro do Router: o Header usa useNavigate para o logout. */}
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
       </BrowserRouter>
     </ThemeProvider>
   )

@@ -1,0 +1,104 @@
+name: CI
+
+# Roda na branch de trabalho (dev) e na de producao (main), tanto em push
+# quanto em pull request -- assim um problema aparece antes do merge, nao
+# depois.
+on:
+  push:
+    branches: ["main", "dev"]
+  pull_request:
+    branches: ["main", "dev"]
+
+jobs:
+  verificar:
+    name: Build, lint e testes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar o codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar o Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        # npm ci em vez de npm install: instalacao limpa e reproduzivel a
+        # partir do package-lock, sem atualizar versoes por conta propria.
+        run: npm ci
+
+      - name: Verificar o lint
+        run: npm run lint
+
+      - name: Compilar
+        # Inclui "tsc -b": um erro de tipo reprova o build antes do deploy.
+        run: npm run build
+
+      - name: Rodar os testes com cobertura
+        # Falha se a cobertura cair abaixo dos limites do vite.config.ts.
+        run: npm run test:coverage
+
+      - name: Publicar o relatorio de cobertura
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cobertura
+          path: coverage/
+          retention-days: 7
+
+  imagem:
+    name: Build da imagem Docker
+    runs-on: ubuntu-latest
+    needs: verificar
+
+    steps:
+      - name: Baixar o codigo
+        uses: actions/checkout@v4
+
+      - name: Construir a imagem
+        # Garante que o Dockerfile continua valido. Nao publica a imagem: o
+        # deploy no Render constroi a partir do repositorio.
+        run: docker build --build-arg VITE_API_URL=/api -t blog-web:ci .
+
+      - name: Conferir que a aplicacao e servida
+        run: |
+          docker run -d --name teste -p 8080:80 blog-web:ci
+
+          # Espera o Nginx aceitar conexoes.
+          for i in $(seq 1 20); do
+            if curl -sf -o /dev/null http://localhost:8080/; then break; fi
+            sleep 1
+          done
+
+          # Se o container morreu, o log do Nginx diz por que -- mais util que
+          # um "connection refused" sem contexto.
+          if [ -z "$(docker ps -q -f name=teste)" ]; then
+            echo "O container nao esta em execucao. Log do Nginx:"
+            docker logs teste
+            exit 1
+          fi
+
+          verificar() {
+            CODIGO=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080$1")
+            echo "  $1 -> $CODIGO"
+            test "$CODIGO" = "200" || { echo "FALHOU: esperava 200 em $1"; docker logs teste; exit 1; }
+          }
+
+          echo "Aplicacao servida:"
+          verificar "/"
+
+          # O fallback de SPA impede que um F5 em rota profunda de 404. Se
+          # quebrar, todo link compartilhado quebra junto.
+          echo "Fallback de SPA:"
+          verificar "/posts/qualquer-id"
+          verificar "/admin/posts/new"
+
+          # Aqui NAO ha servico de API: o teste verifica justamente que a
+          # interface sobe e serve mesmo assim. O Nginx resolve o upstream por
+          # variavel, entao a ausencia da API derruba so as chamadas /api --
+          # nao o container inteiro, como acontecia com o nome literal.
+          echo "Interface resiste a ausencia da API: OK"
+
+          docker rm -f teste

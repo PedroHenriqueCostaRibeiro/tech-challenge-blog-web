@@ -21,3 +21,15 @@ export interface CreatePostInput {
 }
 
 export type UpdatePostInput = Partial<CreatePostInput>
+
+/** Docente autenticado. Sem papel: o unico perfil com conta e o docente. */
+export interface User {
+  id: string
+  name: string
+  email: string
+}
+
+export interface LoginResponse {
+  token: string
+  user: User
+}
