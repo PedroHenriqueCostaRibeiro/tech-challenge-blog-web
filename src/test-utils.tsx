@@ -2,8 +2,9 @@ import { render } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { ThemeProvider } from 'styled-components'
+import { AuthProvider } from './contexts/AuthContext'
 import { theme } from './styles/theme'
-import type { Post } from './types'
+import type { Post, User } from './types'
 
 /**
  * Renderiza um componente com os provedores que a aplicacao real fornece.
@@ -42,4 +43,38 @@ export function fakeResponse(body: unknown, status = 200): Response {
     status,
     json: async () => body,
   } as unknown as Response
+}
+
+/** Docente de exemplo; sobrescreva so o que o teste precisa. */
+export function makeUser(overrides: Partial<User> = {}): User {
+  return {
+    id: 'user-1',
+    name: 'Maria Silva',
+    email: 'maria@escola.edu.br',
+    ...overrides,
+  }
+}
+
+/**
+ * Como `renderWithProviders`, mas tambem com o AuthProvider.
+ *
+ * Use quando o componente sob teste depende da sessao (guarda de rota,
+ * cabecalho, tela de login).
+ */
+export function renderWithAuth(
+  ui: ReactElement,
+  { route = '/' }: { route?: string } = {},
+) {
+  return render(
+    <ThemeProvider theme={theme}>
+      <MemoryRouter initialEntries={[route]}>
+        <AuthProvider>{ui}</AuthProvider>
+      </MemoryRouter>
+    </ThemeProvider>,
+  )
+}
+
+/** Promessa que nunca resolve: congela uma requisicao em "carregando". */
+export function nuncaResolve(): Promise<never> {
+  return new Promise(() => {})
 }
