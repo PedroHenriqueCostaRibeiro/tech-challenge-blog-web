@@ -20,6 +20,11 @@ const Inner = styled(Container)`
 `
 
 const Brand = styled(Link)`
+  /* inline-flex + min-height garantem o alvo de toque de 44px: como texto
+     simples, o link ficava com 29px de altura. */
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   font-size: 1.125rem;
   font-weight: 700;
   color: ${({ theme }) => theme.colors.primaryDark};

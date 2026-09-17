@@ -8,8 +8,11 @@ import { useAsync } from '../../hooks/useAsync'
 import { formatDate } from '../../utils/format'
 
 const Back = styled(Link)`
-  display: inline-block;
-  margin-bottom: ${({ theme }) => theme.spacing(6)};
+  /* Alvo de toque de 44px: como texto simples o link ficava com 26px. */
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-bottom: ${({ theme }) => theme.spacing(4)};
   font-weight: 600;
 `
 
