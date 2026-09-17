@@ -11,12 +11,20 @@ import { ApiError } from '../api/http'
 export type AsyncState<T> =
   | { status: 'loading' }
   | { status: 'success'; data: T }
-  | { status: 'error'; message: string }
+  | { status: 'error'; message: string; httpStatus?: number }
 
 function toMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message
   if (error instanceof Error) return error.message
   return 'Erro inesperado. Tente novamente.'
+}
+
+/**
+ * Status HTTP quando houver. Permite que a tela distinga "nao existe" (404)
+ * de "deu erro" (500) e escolha a mensagem certa para o usuario.
+ */
+function toHttpStatus(error: unknown): number | undefined {
+  return error instanceof ApiError ? error.status : undefined
 }
 
 /**
@@ -53,7 +61,11 @@ export function useAsync<T>(
       })
       .catch((error: unknown) => {
         if (id === runId.current) {
-          setState({ status: 'error', message: toMessage(error) })
+          setState({
+            status: 'error',
+            message: toMessage(error),
+            httpStatus: toHttpStatus(error),
+          })
         }
       })
   }, [])
