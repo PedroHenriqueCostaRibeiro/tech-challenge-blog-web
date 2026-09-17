@@ -82,7 +82,12 @@ services:
     container_name: blog-web
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        # service_healthy, e nao apenas service_started: sem a condicao, o
+        # compose so espera o container da API ser criado -- nao esperar ela
+        # ficar pronta para atender. O healthcheck da API responde pelo
+        # /health, que por sua vez so existe depois da conexao com o banco.
+        condition: service_healthy
     ports:
       - "8080:80"
 
