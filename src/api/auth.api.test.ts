@@ -20,8 +20,13 @@ beforeEach(() => {
 })
 
 function cabecalhos(): Record<string, string> {
-  return (fetchMock.mock.calls.at(-1)?.[1] as RequestInit)
-    .headers as Record<string, string>
+  const ultima = fetchMock.mock.calls.at(-1)
+
+  // Falha com mensagem clara em vez de um TypeError obscuro se o fetch nao
+  // tiver sido chamado.
+  if (!ultima) throw new Error('fetch nao foi chamado')
+
+  return (ultima[1] as RequestInit).headers as Record<string, string>
 }
 
 describe('authApi.login', () => {

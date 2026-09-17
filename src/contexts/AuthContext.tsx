@@ -1,5 +1,4 @@
 import {
-  createContext,
   useCallback,
   useEffect,
   useMemo,
@@ -10,28 +9,20 @@ import { authApi } from '../api/auth.api'
 import { setUnauthorizedHandler } from '../api/http'
 import { tokenStorage } from '../api/token'
 import type { User } from '../types'
-
-/**
- * TRES estados, nao dois.
- *
- * "loading" existe porque, logo apos um F5, o token esta no localStorage mas o
- * React ainda nao sabe se ele e valido. Tratar esse instante como "anonimo"
- * faria a guarda de rota expulsar o usuario logado a cada recarregamento -- o
- * bug mais comum deste padrao.
- */
-export type AuthStatus = 'loading' | 'authenticated' | 'anonymous'
-
-export interface AuthContextValue {
-  status: AuthStatus
-  user: User | null
-  login: (email: string, password: string) => Promise<void>
-  logout: () => void
-}
-
-export const AuthContext = createContext<AuthContextValue | null>(null)
+import { AuthContext, type AuthStatus } from './auth-context'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<AuthStatus>('loading')
+  /**
+   * O estado inicial ja e derivado do armazenamento: sem token guardado, nao
+   * ha o que verificar e a pessoa e anonima desde o primeiro render.
+   *
+   * Comecar sempre em "loading" e corrigir num efeito provocaria um render
+   * extra e um piscar do cabecalho a cada carregamento de quem nao esta
+   * logado -- que e a maioria das visitas, ja que a leitura e publica.
+   */
+  const [status, setStatus] = useState<AuthStatus>(() =>
+    tokenStorage.get() ? 'loading' : 'anonymous',
+  )
   const [user, setUser] = useState<User | null>(null)
 
   const clearSession = useCallback(() => {
@@ -40,12 +31,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('anonymous')
   }, [])
 
-  // Reidrata a sessao no boot: le o token e pergunta ao servidor se ele vale.
+  // Reidrata a sessao no boot: havendo token, pergunta ao servidor se ele vale.
   useEffect(() => {
-    if (!tokenStorage.get()) {
-      setStatus('anonymous')
-      return
-    }
+    // Sem token o estado inicial ja e "anonymous" — nada a verificar.
+    if (!tokenStorage.get()) return
 
     let cancelado = false
 

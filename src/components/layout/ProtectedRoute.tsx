@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { Spinner } from '../ui/Spinner'
@@ -22,8 +22,27 @@ export function ProtectedRoute() {
    * E o que distingue "a pessoa clicou em Sair" de "a pessoa tentou entrar
    * direto sem conta" -- dois casos que merecem destinos diferentes, mas que
    * do ponto de vista do status sao identicos: anonimo numa rota protegida.
+   *
+   * Guardado em estado, e nao em ref: refs nao devem ser lidos nem escritos
+   * durante a renderizacao, porque com renderizacao concorrente o valor pode
+   * ficar inconsistente com o que foi desenhado.
    */
-  const esteveAutenticado = useRef(false)
+  const [esteveAutenticado, setEsteveAutenticado] = useState(false)
+
+  /**
+   * O linter sinaliza setState dentro de efeito, e aqui isso e aceito de
+   * proposito: "esteve autenticado" e um fato HISTORICO, que por definicao
+   * nao pode ser derivado do status atual -- no momento em que precisamos
+   * dele, o status ja e "anonymous" nos dois casos que queremos distinguir.
+   *
+   * As alternativas foram avaliadas: guardar em ref e ler durante a
+   * renderizacao tambem e sinalizado, e por um motivo mais serio (refs podem
+   * ficar inconsistentes com o que foi desenhado). Entre as duas, o estado e
+   * o padrao correto.
+   */
+  useEffect(() => {
+    if (status === 'authenticated') setEsteveAutenticado(true)
+  }, [status])
 
   if (status === 'loading') {
     /**
@@ -35,12 +54,11 @@ export function ProtectedRoute() {
   }
 
   if (status === 'authenticated') {
-    esteveAutenticado.current = true
     return <Outlet />
   }
 
   // Saiu da conta: volta ao blog publico, onde ainda pode ler.
-  if (esteveAutenticado.current) {
+  if (esteveAutenticado) {
     return <Navigate to="/" replace />
   }
 

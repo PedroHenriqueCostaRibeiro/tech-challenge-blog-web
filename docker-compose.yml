@@ -1,0 +1,90 @@
+# =============================================================================
+# PRE-REQUISITO: os dois repositorios clonados lado a lado --
+#
+#   pasta-do-projeto/
+#   ├── tech-challenge-blog-api/
+#   └── tech-challenge-blog-web/   <- rode o compose a partir daqui
+#
+# Sobe a aplicacao inteira -- banco, API e interface -- com um comando:
+#
+#   docker compose up --build
+#
+# Depois crie os docentes de demonstracao (sem eles nao ha como fazer login):
+#
+#   docker compose exec api node dist/database/seed.js
+#
+# Interface:  http://localhost:8080
+# API:        http://localhost:3000
+# Banco:      localhost:5433
+# =============================================================================
+
+services:
+  # ---------- Banco de dados ----------
+  db:
+    image: postgres:17-alpine
+    container_name: blog-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_DATABASE:-blog}
+    ports:
+      # Exposto na 5433 do host para nao colidir com um PostgreSQL instalado
+      # nativamente na 5432. No pgAdmin, conecte em localhost:5433.
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_DATABASE:-blog}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ---------- API ----------
+  api:
+    build: ../tech-challenge-blog-api
+    container_name: blog-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      # Dentro da rede do compose o host do banco e o NOME DO SERVICO, nao
+      # localhost: o Docker resolve "db" pelo DNS interno.
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_DATABASE: ${DB_DATABASE:-blog}
+      DB_SYNCHRONIZE: "true"
+      DB_LOGGING: "false"
+      # O padrao abaixo serve APENAS para desenvolvimento local. Em producao,
+      # gere um valor aleatorio:
+      #   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-nao-use-em-producao}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+    ports:
+      - "3000:3000"
+
+  # ---------- Interface ----------
+  web:
+    build:
+      context: .
+      args:
+        # CONGELADO NO BUILD, nao em tempo de execucao: o Vite substitui o
+        # texto durante a compilacao. Declarar isto em "environment" nao teria
+        # efeito nenhum -- o valor precisa chegar como argumento de build.
+        #
+        # "/api" faz o front chamar caminhos relativos, que o Nginx do proprio
+        # container repassa para o servico "api".
+        VITE_API_URL: /api
+    container_name: blog-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
