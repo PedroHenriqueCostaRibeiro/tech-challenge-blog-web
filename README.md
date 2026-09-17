@@ -194,6 +194,12 @@ npm run dev
 A interface sobe em http://localhost:5173. O proxy do Vite repassa `/api` para a API, então não
 há CORS envolvido.
 
+### Publicando
+
+O passo a passo do deploy no Render — banco, API e interface — está em
+[`docs/deploy-render.md`](docs/deploy-render.md), com as armadilhas de cada etapa e um guia de
+diagnóstico.
+
 ---
 
 ## Variáveis de ambiente
