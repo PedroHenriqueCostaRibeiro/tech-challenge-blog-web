@@ -65,20 +65,40 @@ jobs:
       - name: Conferir que a aplicacao e servida
         run: |
           docker run -d --name teste -p 8080:80 blog-web:ci
-          # Espera o Nginx subir antes de testar.
-          for i in $(seq 1 15); do
-            if curl -sf http://localhost:8080/ > /dev/null; then break; fi
+
+          # Espera o Nginx aceitar conexoes.
+          for i in $(seq 1 20); do
+            if curl -sf -o /dev/null http://localhost:8080/; then break; fi
             sleep 1
           done
 
-          echo "Home:"
-          curl -sf -o /dev/null -w "  / -> %{http_code}\n" http://localhost:8080/
+          # Se o container morreu, o log do Nginx diz por que -- mais util que
+          # um "connection refused" sem contexto.
+          if [ -z "$(docker ps -q -f name=teste)" ]; then
+            echo "O container nao esta em execucao. Log do Nginx:"
+            docker logs teste
+            exit 1
+          fi
 
-          # O fallback de SPA e o que impede um F5 em rota profunda de dar
-          # 404. Se quebrar, todo link compartilhado quebra junto.
+          verificar() {
+            CODIGO=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080$1")
+            echo "  $1 -> $CODIGO"
+            test "$CODIGO" = "200" || { echo "FALHOU: esperava 200 em $1"; docker logs teste; exit 1; }
+          }
+
+          echo "Aplicacao servida:"
+          verificar "/"
+
+          # O fallback de SPA impede que um F5 em rota profunda de 404. Se
+          # quebrar, todo link compartilhado quebra junto.
           echo "Fallback de SPA:"
-          CODIGO=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/posts/qualquer-id)
-          echo "  /posts/qualquer-id -> $CODIGO"
-          test "$CODIGO" = "200" || { echo "FALHOU: rota profunda deveria servir o index.html"; exit 1; }
+          verificar "/posts/qualquer-id"
+          verificar "/admin/posts/new"
+
+          # Aqui NAO ha servico de API: o teste verifica justamente que a
+          # interface sobe e serve mesmo assim. O Nginx resolve o upstream por
+          # variavel, entao a ausencia da API derruba so as chamadas /api --
+          # nao o container inteiro, como acontecia com o nome literal.
+          echo "Interface resiste a ausencia da API: OK"
 
           docker rm -f teste
