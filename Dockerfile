@@ -45,7 +45,13 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 EXPOSE 80
 
 # O healthcheck usa a propria pagina: se o Nginx responde, a SPA esta servida.
+#
+# 127.0.0.1 em vez de localhost, de proposito: o Nginx escuta apenas em IPv4
+# (0.0.0.0:80), mas "localhost" resolve tambem para ::1 dentro do container e
+# o wget do Alpine tenta o IPv6 primeiro -- recebendo "connection refused". O
+# container ficava marcado como unhealthy enquanto servia tudo normalmente,
+# o que faria um orquestrador reinicia-lo em laco.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
-  CMD wget -q --spider http://localhost/ || exit 1
+  CMD wget -q --spider http://127.0.0.1/ || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]
